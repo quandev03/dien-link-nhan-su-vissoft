@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -28,61 +28,61 @@ const vietnameseBanks = [
     code: "BIDV",
     name: "Ngân hàng Thương mại cổ phần Đầu tư và Phát triển Việt Nam",
     shortName: "BIDV",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-BIDV.png",
+    logo: "/images/banks/bidv.png",
   },
   {
     code: "VCB",
     name: "Ngân hàng Thương mại cổ phần Ngoại thương Việt Nam",
     shortName: "Vietcombank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-Vietcombank.png",
+    logo: "/images/banks/vietcombank.png",
   },
   {
     code: "VTB",
     name: "Ngân hàng Thương mại cổ phần Công thương Việt Nam",
     shortName: "VietinBank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-VietinBank.png",
+    logo: "/images/banks/vietinbank.png",
   },
   {
     code: "ACB",
     name: "Ngân hàng Thương mại cổ phần Á Châu",
     shortName: "ACB",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-ACB.png",
+    logo: "/images/banks/acb.png",
   },
   {
     code: "TCB",
     name: "Ngân hàng Thương mại cổ phần Kỹ thương Việt Nam",
     shortName: "Techcombank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-Techcombank.png",
+    logo: "/images/banks/techcombank.png",
   },
   {
     code: "MB",
     name: "Ngân hàng Thương mại cổ phần Quân đội",
     shortName: "MB Bank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-MBBank.png",
+    logo: "/images/banks/mbbank.png",
   },
   {
     code: "VPB",
     name: "Ngân hàng Thương mại cổ phần Việt Nam Thịnh vượng",
     shortName: "VPBank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-VPBank.png",
+    logo: "/images/banks/vpbank.png",
   },
   {
     code: "TPB",
     name: "Ngân hàng Thương mại cổ phần Tiên Phong",
     shortName: "TPBank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-TPBank.png",
+    logo: "/images/banks/tpbank.png",
   },
   {
     code: "STB",
     name: "Ngân hàng Thương mại cổ phần Sài Gòn Thương Tín",
     shortName: "Sacombank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-Sacombank.png",
+    logo: "/images/banks/sacombank.png",
   },
   {
     code: "EIB",
     name: "Ngân hàng Thương mại cổ phần Xuất Nhập khẩu Việt Nam",
     shortName: "Eximbank",
-    logo: "https://cdn.haitrieu.com/wp-content/uploads/2022/02/Logo-Eximbank.png",
+    logo: "/images/banks/eximbank.png",
   },
 ]
 
@@ -96,6 +96,19 @@ const employeeRelativeSchema = z.object({
   }),
   relationshipParamCode: z.string().min(1, "Relationship is required"),
 })
+
+// Create a custom file validator that works in both client and server environments
+const createFileSchema = (errorMessage: string) => z.any()
+  .refine(
+    (file) => {
+      // Skip validation during SSR
+      if (typeof window === 'undefined') return true
+      // Validate as File object on client
+      // Use type checking instead of instanceof to avoid ReferenceError
+      return file && typeof file === 'object' && 'name' in file && 'size' in file && 'type' in file
+    },
+    { message: errorMessage }
+  )
 
 // Update the form schema to include the new fields
 const formSchema = z.object({
@@ -126,11 +139,11 @@ const formSchema = z.object({
   hobbies: z.string().min(1, "Hobbies is required"),
   favoriteQuoteAndSaying: z.string().optional(), // Optional
   employeeRelatives: z.array(employeeRelativeSchema).min(1, "At least one family member is required"), // Required minimum 1
-  frontIdCard: z.instanceof(File, { message: "Front ID card is required" }),
-  backIdCard: z.instanceof(File, { message: "Back ID card is required" }),
-  portrait: z.instanceof(File, { message: "Portrait photo is required" }),
-  selfie: z.instanceof(File, { message: "Selfie is required" }),
-  certificate: z.instanceof(File).optional(), // Optional
+  frontIdCard: createFileSchema("Front ID card is required"),
+  backIdCard: createFileSchema("Back ID card is required"),
+  portrait: createFileSchema("Portrait photo is required"),
+  selfie: createFileSchema("Selfie is required"),
+  certificate: z.any().optional(), // Optional
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -140,17 +153,13 @@ export default function EmployeeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [completedSteps, setCompletedSteps] = useState<string[]>([])
   const [language, setLanguage] = useState<Language>("vi")
+  
+  // State to track if we've loaded saved data
+  const [loadedSavedData, setLoadedSavedData] = useState(false)
+  const [hasSavedData, setHasSavedData] = useState(false)
 
   const t = translations[language]
-
-  const steps = [
-    { id: "personal", label: t.steps.personal, icon: "1" },
-    { id: "address", label: t.steps.address, icon: "2" },
-    { id: "financial", label: t.steps.financial, icon: "3" },
-    { id: "family", label: t.steps.family, icon: "4" },
-    { id: "documents", label: t.steps.documents, icon: "5" },
-  ]
-
+  
   // Initialize the form
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -168,14 +177,131 @@ export default function EmployeeForm() {
     },
   })
 
+  // Load saved form data from localStorage when component mounts
+  useEffect(() => {
+    // Only run this once and only on the client side
+    if (typeof window !== 'undefined' && !loadedSavedData) {
+      const savedData = localStorage.getItem('employeeFormData')
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData)
+          
+          // Convert string dates back to Date objects
+          const formattedData = {
+            ...parsedData,
+            birthOfDate: parsedData.birthOfDate ? new Date(parsedData.birthOfDate) : new Date(),
+            dateOfIssue: parsedData.dateOfIssue ? new Date(parsedData.dateOfIssue) : new Date(),
+            dateOfOnboard: parsedData.dateOfOnboard ? new Date(parsedData.dateOfOnboard) : undefined,
+            // We can't restore File objects from localStorage
+          }
+          
+          // Reset the form with saved values
+          Object.keys(formattedData).forEach(key => {
+            // Skip file fields as they can't be restored from localStorage
+            if (!['frontIdCard', 'backIdCard', 'portrait', 'selfie', 'certificate'].includes(key)) {
+              form.setValue(key as any, formattedData[key])
+            }
+          })
+          
+          setHasSavedData(true)
+          console.log("Loaded saved form data from localStorage")
+        } catch (error) {
+          console.error("Error loading saved form data:", error)
+        }
+      }
+      setLoadedSavedData(true)
+    }
+  }, [loadedSavedData, form])
+
+  const steps = [
+    { id: "personal", label: t.steps.personal, icon: "1" },
+    { id: "address", label: t.steps.address, icon: "2" },
+    { id: "financial", label: t.steps.financial, icon: "3" },
+    { id: "family", label: t.steps.family, icon: "4" },
+    { id: "documents", label: t.steps.documents, icon: "5" },
+  ]
+
   // Handle form submission
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true)
     try {
       console.log("Form data:", data)
-      // Here you would typically send the data to your API
-      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate API call
+      
+      // Create a FormData object for the API call
+      const formData = new FormData()
+      
+      // Format the data according to the API requirements
+      const apiData = {
+        preEmployeesId: "PE00123", // This would typically come from your backend or URL params
+        fullName: data.fullName,
+        email: data.email,
+        birthOfDate: format(data.birthOfDate, "yyyy-MM-dd"),
+        genderParamCode: data.genderParamCode,
+        phone: parseFloat(data.phone),
+        cccd: data.cccd,
+        dateOfIssue: format(data.dateOfIssue, "yyyy-MM-dd"),
+        dateOfOnboard: data.dateOfOnboard ? format(data.dateOfOnboard, "yyyy-MM-dd") : undefined,
+        permanentAddress: data.permanentAddress,
+        currentAddress: data.currentAddress,
+        fillEnabled: true,
+        bankAccountNumber: data.bankAccountNumber,
+        bankName: data.bankName,
+        bankBranch: data.bankBranch,
+        personalTaxCode: data.personalTaxCode || undefined,
+        licensePlateNumber: data.licensePlateNumber || undefined,
+        vehicleColor: data.vehicleColor || undefined,
+        vehicleType: data.vehicleType || undefined,
+        hobbies: data.hobbies,
+        favoriteQuoteAndSaying: data.favoriteQuoteAndSaying || undefined,
+        contractPreEmployeeCode: "PEC" + format(new Date(), "yyyyMMdd") + "001", // Generate a code based on current date
+        candidateCvId: "CV" + Math.floor(100000 + Math.random() * 900000), // Generate a random CV ID
+        healthInsuranceNumber: data.healthInsuranceNumber,
+        socialInsuranceNumber: data.socialInsuranceNumber,
+        numberOfDependents: parseInt(data.dependentsCount)
+      }
+      
+      // Add the JSON data to the FormData
+      formData.append('data', JSON.stringify(apiData))
+      
+      // Add the files to the FormData
+      if (data.frontIdCard) formData.append('front', data.frontIdCard)
+      if (data.backIdCard) formData.append('back', data.backIdCard)
+      if (data.portrait) formData.append('portrait', data.portrait)
+      if (data.selfie) formData.append('selfie', data.selfie)
+      if (data.certificate) formData.append('degree', data.certificate)
+      
+      // Make the API call
+      const response = await fetch(
+        'http://localhost:8080/api/v1/recruitment-management/fill-information-pre-employee?code=01JVNSQSRZ6V6MH8A6F7P0WSAA',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      )
+      
+      if (!response.ok) {
+        throw new Error(`API call failed with status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      console.log("API response:", result)
       alert("Form submitted successfully!")
+      
+      // Save the form data to localStorage for persistence
+      localStorage.setItem('employeeFormData', JSON.stringify({
+        ...data,
+        birthOfDate: format(data.birthOfDate, "yyyy-MM-dd"),
+        dateOfIssue: format(data.dateOfIssue, "yyyy-MM-dd"),
+        dateOfOnboard: data.dateOfOnboard ? format(data.dateOfOnboard, "yyyy-MM-dd") : undefined,
+        // We can't store File objects in localStorage, so we'll just store file names
+        frontIdCard: data.frontIdCard?.name,
+        backIdCard: data.backIdCard?.name,
+        portrait: data.portrait?.name,
+        selfie: data.selfie?.name,
+        certificate: data.certificate?.name,
+      }))
+      setHasSavedData(true)
+      
     } catch (error) {
       console.error("Error submitting form:", error)
       alert("An error occurred while submitting the form.")
@@ -215,6 +341,28 @@ export default function EmployeeForm() {
       form.setValue(fieldName as any, file)
     }
   }
+  
+  // Clear saved form data
+  const clearSavedData = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('employeeFormData')
+      setHasSavedData(false)
+      // Reset the form to default values
+      form.reset({
+        employeeRelatives: [
+          {
+            fullName: "",
+            genderParamCode: "",
+            phone: "",
+            birthOfDate: new Date(),
+            relationshipParamCode: "",
+          },
+        ],
+        bankName: "BIDV",
+      })
+      alert("Saved form data has been cleared.")
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -223,8 +371,35 @@ export default function EmployeeForm() {
           <Image src="/images/vissoft-logo.png" alt="VISSOFT Logo" width={50} height={50} />
           <h1 className="text-2xl font-bold">{t.title}</h1>
         </div>
-        <LanguageToggle onChange={setLanguage} currentLanguage={language} />
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={clearSavedData}
+            className="text-xs"
+          >
+            {t.clearSavedData}
+          </Button>
+          <LanguageToggle onChange={setLanguage} currentLanguage={language} />
+        </div>
       </div>
+      
+      {/* Show message when data is loaded from localStorage */}
+      {loadedSavedData && hasSavedData && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-6 flex items-center justify-between">
+          <p className="text-sm">
+            {t.dataLoadedMessage}
+          </p>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={clearSavedData}
+            className="text-xs hover:bg-green-100"
+          >
+            {t.clearData}
+          </Button>
+        </div>
+      )}
 
       {/* Progress Stepper */}
       <div className="mb-8">
@@ -736,6 +911,11 @@ export default function EmployeeForm() {
                           <FormLabel>
                             {t.fields.bankName} <span className="text-red-500">*</span>
                           </FormLabel>
+                          <div className="mb-2">
+                            <p className="text-sm text-amber-600 font-medium">
+                              {t.bankRequirement}
+                            </p>
+                          </div>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -745,8 +925,6 @@ export default function EmployeeForm() {
                                       <img
                                         src={
                                           vietnameseBanks.find((bank) => bank.code === field.value)?.logo ||
-                                          "/placeholder.svg" ||
-                                          "/placeholder.svg" ||
                                           "/placeholder.svg"
                                         }
                                         alt=""
@@ -762,7 +940,11 @@ export default function EmployeeForm() {
                             </FormControl>
                             <SelectContent>
                               {vietnameseBanks.map((bank) => (
-                                <SelectItem key={bank.code} value={bank.code}>
+                                <SelectItem 
+                                  key={bank.code} 
+                                  value={bank.code}
+                                  className={bank.code === "BIDV" ? "bg-amber-50" : ""}
+                                >
                                   <div className="flex items-center gap-2">
                                     <img
                                       src={bank.logo || "/placeholder.svg"}
@@ -770,6 +952,11 @@ export default function EmployeeForm() {
                                       className="w-6 h-6 object-contain"
                                     />
                                     <span>{bank.shortName}</span>
+                                    {bank.code === "BIDV" && (
+                                      <span className="ml-2 text-xs text-amber-600 font-medium">
+                                        {t.recommended}
+                                      </span>
+                                    )}
                                   </div>
                                 </SelectItem>
                               ))}

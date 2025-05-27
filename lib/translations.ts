@@ -14,6 +14,11 @@ export const translations = {
     previous: "Previous",
     submit: "Submit",
     submitting: "Submitting...",
+    clearSavedData: "Clear Saved Data",
+    clearData: "Clear Data",
+    dataLoadedMessage: "Your previously saved information has been loaded.",
+    bankRequirement: "BIDV bank is required",
+    recommended: "(Recommended)",
     fields: {
       employeeId: "Employee ID",
       fullName: "Full Name",
@@ -91,6 +96,11 @@ export const translations = {
     previous: "Trước đó",
     submit: "Gửi",
     submitting: "Đang gửi...",
+    clearSavedData: "Xóa dữ liệu đã lưu",
+    clearData: "Xóa dữ liệu",
+    dataLoadedMessage: "Thông tin đã lưu trước đó của bạn đã được tải lên.",
+    bankRequirement: "Yêu cầu ngân hàng BIDV",
+    recommended: "(Khuyến nghị)",
     fields: {
       employeeId: "Mã nhân viên",
       fullName: "Họ và tên",
